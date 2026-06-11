@@ -2,53 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Settings, ChevronLeft, Eye, EyeOff, TestTube, Save, CheckCircle, XCircle, AlertCircle, User, LogOut, Cloud } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-
-export type ProviderType = 'deepseek' | 'glm' | 'qwen' | 'siliconflow' | 'openai' | 'claude';
-
-export interface ProviderConfig {
-  name: string;
-  models: string[];
-  apiUrl: string;
-}
-
-export interface AIConfig {
-  provider: ProviderType;
-  apiKey: string;
-  model: string;
-}
-
-export const providers: Record<ProviderType, ProviderConfig> = {
-  deepseek: {
-    name: 'DeepSeek',
-    models: ['deepseek-chat', 'deepseek-reasoner'],
-    apiUrl: 'https://api.deepseek.com/v1/chat/completions',
-  },
-  glm: {
-    name: '智谱AI',
-    models: ['glm-4-air', 'glm-4-flash', 'glm-4-plus'],
-    apiUrl: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
-  },
-  qwen: {
-    name: '通义千问',
-    models: ['qwen-plus', 'qwen-turbo', 'qwen-max'],
-    apiUrl: 'https://dashscope.aliyuncs.com/api/text/text-generation',
-  },
-  siliconflow: {
-    name: 'SiliconFlow',
-    models: ['deepseek-ai/DeepSeek-V3', 'Qwen/Qwen3', 'THUDM/GLM'],
-    apiUrl: 'https://api.siliconflow.cn/v1/chat/completions',
-  },
-  openai: {
-    name: 'OpenAI',
-    models: ['gpt-4o', 'gpt-4', 'gpt-3.5-turbo'],
-    apiUrl: 'https://api.openai.com/v1/chat/completions',
-  },
-  claude: {
-    name: 'Claude',
-    models: ['claude-3-5-sonnet', 'claude-3-opus', 'claude-3-sonnet'],
-    apiUrl: 'https://api.anthropic.com/v1/messages',
-  },
-};
+import { providers, ProviderType, AIConfig } from '@/lib/providers';
 
 export default function SettingsPage() {
   const [provider, setProvider] = useState<ProviderType>('deepseek');
@@ -254,7 +208,7 @@ export default function SettingsPage() {
                 className="w-full px-4 py-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-ring bg-background text-foreground"
               >
                 <option value="deepseek">DeepSeek</option>
-                <option value="glm">智谱AI</option>
+                <option value="zhipu">智谱AI</option>
                 <option value="qwen">通义千问</option>
                 <option value="siliconflow">SiliconFlow</option>
                 <option value="openai">OpenAI（预留）</option>

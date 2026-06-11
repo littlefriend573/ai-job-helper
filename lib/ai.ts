@@ -1,3 +1,5 @@
+import { providers, AIConfig as ProviderAIConfig } from './providers';
+
 export interface AnalysisResult {
   keywords: string[];
   skillProfile: SkillProfile;
@@ -18,40 +20,18 @@ export interface AIConfig {
   model: string;
 }
 
-const providers: Record<string, { apiUrl: string; format: 'openai' | 'qwen' | 'claude' }> = {
-  deepseek: {
-    apiUrl: 'https://api.deepseek.com/v1/chat/completions',
-    format: 'openai',
-  },
-  glm: {
-    apiUrl: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
-    format: 'openai',
-  },
-  qwen: {
-    apiUrl: 'https://dashscope.aliyuncs.com/api/text/text-generation',
-    format: 'qwen',
-  },
-  siliconflow: {
-    apiUrl: 'https://api.siliconflow.cn/v1/chat/completions',
-    format: 'openai',
-  },
-  openai: {
-    apiUrl: 'https://api.openai.com/v1/chat/completions',
-    format: 'openai',
-  },
-  claude: {
-    apiUrl: 'https://api.anthropic.com/v1/messages',
-    format: 'claude',
-  },
-};
-
 async function callAI(prompt: string, config: AIConfig): Promise<string> {
-  const providerConfig = providers[config.provider];
+  const provider = config.provider.toLowerCase();
+  const providerConfig = providers[provider as keyof typeof providers];
+  
   if (!providerConfig) {
+    console.error(`[callAI] 未知的API提供商: ${provider}`);
     throw new Error('未知的API提供商');
   }
 
   const { apiUrl, format } = providerConfig;
+
+  console.log(`[callAI] 开始调用AI: provider=${provider}, model=${config.model}, apiUrl=${apiUrl}`);
 
   try {
     let body: Record<string, unknown>;
@@ -108,21 +88,29 @@ async function callAI(prompt: string, config: AIConfig): Promise<string> {
     const data = await response.json();
 
     if (!response.ok) {
+      console.error(`[callAI] API调用失败: status=${response.status}, error=${JSON.stringify(data)}`);
       throw new Error(data.error?.message || 'API调用失败');
     }
 
+    let result = '';
     switch (format) {
       case 'openai':
-        return data.choices?.[0]?.message?.content || '';
+        result = data.choices?.[0]?.message?.content || '';
+        break;
       case 'qwen':
-        return data.output?.text || '';
+        result = data.output?.text || '';
+        break;
       case 'claude':
-        return data.content?.[0]?.text || '';
+        result = data.content?.[0]?.text || '';
+        break;
       default:
-        return data.choices?.[0]?.message?.content || '';
+        result = data.choices?.[0]?.message?.content || '';
     }
+
+    console.log(`[callAI] 调用成功: resultLength=${result.length}`);
+    return result;
   } catch (error) {
-    console.error('AI调用失败:', error);
+    console.error(`[callAI] 调用异常: ${(error as Error).message}`);
     throw error;
   }
 }
@@ -131,6 +119,8 @@ export async function analyzeJD(
   jdText: string,
   config: AIConfig
 ): Promise<{ keywords: string[]; skillProfile: SkillProfile }> {
+  console.log(`[analyzeJD] 开始分析JD: length=${jdText.length}`);
+
   const prompt = `
 分析以下职位描述(JD)，提取关键信息：
 
@@ -151,8 +141,11 @@ ${jdText}
   const result = await callAI(prompt, config);
 
   try {
-    return JSON.parse(result);
-  } catch {
+    const parsed = JSON.parse(result);
+    console.log(`[analyzeJD] 分析完成: keywords=${parsed.keywords?.length || 0}, technicalSkills=${parsed.skillProfile?.technicalSkills?.length || 0}`);
+    return parsed;
+  } catch (e) {
+    console.error(`[analyzeJD] JSON解析失败: ${(e as Error).message}`);
     return {
       keywords: [],
       skillProfile: {
@@ -169,6 +162,8 @@ export async function analyzeResume(
   resumeText: string,
   config: AIConfig
 ): Promise<{ keywords: string[]; experience: string; skills: string[] }> {
+  console.log(`[analyzeResume] 开始分析简历: length=${resumeText.length}`);
+
   const prompt = `
 分析以下简历内容，提取关键信息：
 
@@ -186,8 +181,11 @@ ${resumeText}
   const result = await callAI(prompt, config);
 
   try {
-    return JSON.parse(result);
-  } catch {
+    const parsed = JSON.parse(result);
+    console.log(`[analyzeResume] 分析完成: keywords=${parsed.keywords?.length || 0}, skills=${parsed.skills?.length || 0}`);
+    return parsed;
+  } catch (e) {
+    console.error(`[analyzeResume] JSON解析失败: ${(e as Error).message}`);
     return {
       keywords: [],
       experience: '',
@@ -201,6 +199,8 @@ export async function calculateMatch(
   resumeSkills: string[],
   config: AIConfig
 ): Promise<{ score: number; suggestions: string[] }> {
+  console.log(`[calculateMatch] 开始计算匹配度: jobSkills=${jobRequirements.technicalSkills.length}, resumeSkills=${resumeSkills.length}`);
+
   const prompt = `
 分析求职者技能与岗位要求的匹配度：
 
@@ -223,8 +223,11 @@ ${resumeSkills.join(', ')}
   const result = await callAI(prompt, config);
 
   try {
-    return JSON.parse(result);
-  } catch {
+    const parsed = JSON.parse(result);
+    console.log(`[calculateMatch] 计算完成: score=${parsed.score}, suggestions=${parsed.suggestions?.length || 0}`);
+    return parsed;
+  } catch (e) {
+    console.error(`[calculateMatch] JSON解析失败: ${(e as Error).message}`);
     return {
       score: 0,
       suggestions: [],

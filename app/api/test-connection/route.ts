@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { providers, ProviderType } from '@/app/settings/page';
+import { providers, ProviderType, getProviderConfig } from '@/lib/providers';
 
 async function fetchWithTimeout(url: string, options: RequestInit, timeout: number): Promise<Response> {
   const controller = new AbortController();
@@ -18,14 +18,16 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeout: numb
 
 export async function POST(request: NextRequest) {
   try {
-    const { provider, apiKey, model } = await request.json();
+    const { provider: providerName, apiKey, model } = await request.json();
 
-    if (!provider || !apiKey || !model) {
+    if (!providerName || !apiKey || !model) {
       return NextResponse.json(
         { success: false, message: '参数不能为空' },
         { status: 400 }
       );
     }
+
+    const provider = providerName.toLowerCase();
 
     const config = providers[provider as ProviderType];
     if (!config) {
@@ -49,17 +51,18 @@ export async function POST(request: NextRequest) {
             },
             body: JSON.stringify({
               model,
-              messages: [{ role: 'user', content: '请回复：连接成功' }],
+              messages: [{ role: 'user', content: '请回复任意内容' }],
               max_tokens: 10,
             }),
           }, 10000);
           if (response.ok) {
             const data = await response.json();
-            success = data.choices?.[0]?.message?.content?.includes('连接成功') ?? false;
+            console.log(`[test-connection] deepseek response: ${JSON.stringify(data)}`);
+            success = !!data?.choices?.[0]?.message?.content;
           }
           break;
 
-        case 'glm':
+        case 'zhipu':
           response = await fetchWithTimeout(config.apiUrl, {
             method: 'POST',
             headers: {
@@ -68,13 +71,14 @@ export async function POST(request: NextRequest) {
             },
             body: JSON.stringify({
               model,
-              messages: [{ role: 'user', content: '请回复：连接成功' }],
+              messages: [{ role: 'user', content: '请回复任意内容' }],
               max_tokens: 10,
             }),
           }, 10000);
           if (response.ok) {
             const data = await response.json();
-            success = data.choices?.[0]?.message?.content?.includes('连接成功') ?? false;
+            console.log(`[test-connection] zhipu response: ${JSON.stringify(data)}`);
+            success = !!data?.choices?.[0]?.message?.content;
           }
           break;
 
@@ -88,14 +92,15 @@ export async function POST(request: NextRequest) {
             body: JSON.stringify({
               model,
               input: {
-                messages: [{ role: 'user', content: '请回复：连接成功' }],
+                messages: [{ role: 'user', content: '请回复任意内容' }],
               },
               parameters: { max_tokens: 10 },
             }),
           }, 10000);
           if (response.ok) {
             const data = await response.json();
-            success = data.output?.text?.includes('连接成功') ?? false;
+            console.log(`[test-connection] qwen response: ${JSON.stringify(data)}`);
+            success = !!data?.output?.text;
           }
           break;
 
@@ -108,13 +113,14 @@ export async function POST(request: NextRequest) {
             },
             body: JSON.stringify({
               model,
-              messages: [{ role: 'user', content: '请回复：连接成功' }],
+              messages: [{ role: 'user', content: '请回复任意内容' }],
               max_tokens: 10,
             }),
           }, 10000);
           if (response.ok) {
             const data = await response.json();
-            success = data.choices?.[0]?.message?.content?.includes('连接成功') ?? false;
+            console.log(`[test-connection] siliconflow response: ${JSON.stringify(data)}`);
+            success = !!data?.choices?.[0]?.message?.content;
           }
           break;
 
