@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import * as pdfParse from 'pdf-parse';
+import { PDFParse } from 'pdf-parse';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,9 +15,12 @@ export async function POST(request: NextRequest) {
     }
 
     const arrayBuffer = await file.arrayBuffer();
-    const data = await pdfParse(arrayBuffer);
+    const buffer = Buffer.from(arrayBuffer);
+    
+    const pdfParse = new PDFParse({ data: buffer });
+    const text = await pdfParse.getText();
 
-    return NextResponse.json({ text: data.text });
+    return NextResponse.json({ text });
   } catch (error) {
     console.error('解析简历失败:', error);
     return NextResponse.json({ error: '解析简历失败' }, { status: 500 });

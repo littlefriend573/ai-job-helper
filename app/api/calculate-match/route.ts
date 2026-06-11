@@ -19,7 +19,11 @@ export async function POST(request: NextRequest) {
       model: aiConfig.model || 'deepseek-chat',
     };
 
-    const result = await calculateMatch(jobRequirements as SkillProfile, resumeSkills as string[], config);
+    const result = await calculateMatch(
+      jobRequirements as SkillProfile, 
+      resumeSkills as string[], 
+      config
+    );
     
     return NextResponse.json(result);
   } catch (error) {

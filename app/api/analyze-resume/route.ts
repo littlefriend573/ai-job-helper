@@ -33,12 +33,14 @@ export async function POST(request: NextRequest) {
       matchResult = await calculateMatch(jobRequirements, resumeAnalysis.skills, config);
     }
 
-    const matchedSkills = resumeAnalysis.skills.filter(skill => 
-      (capabilityProfile?.technicalSkills || []).includes(skill) ||
-      (capabilityProfile?.softSkills || []).includes(skill)
+    const technicalSkills = capabilityProfile?.technicalSkills || [];
+    const softSkills = capabilityProfile?.softSkills || [];
+
+    const matchedSkills = resumeAnalysis.skills.filter((skill: string) => 
+      technicalSkills.includes(skill) || softSkills.includes(skill)
     );
 
-    const missingSkills = (capabilityProfile?.technicalSkills || []).filter(skill => 
+    const missingSkills = technicalSkills.filter((skill: string) => 
       !resumeAnalysis.skills.includes(skill)
     );
 

@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { analyzeJD, AIConfig } from '@/lib/ai';
 
+interface JDAnalysisResult {
+  keywords: string[];
+  skillProfile: {
+    technicalSkills: string[];
+    softSkills: string[];
+    experienceLevel: string;
+    educationRequirements: string[];
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { position, jds, aiConfig } = await request.json();
@@ -19,12 +29,7 @@ export async function POST(request: NextRequest) {
       model: aiConfig.model || 'deepseek-chat',
     };
 
-    const allResults: { keywords: string[]; skillProfile: {
-      technicalSkills: string[];
-      softSkills: string[];
-      experienceLevel: string;
-      educationRequirements: string[];
-    }}[] = [];
+    const allResults: JDAnalysisResult[] = [];
 
     for (const jdText of jds) {
       if (jdText && jdText.trim()) {
@@ -46,12 +51,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function combineJDAnalysis(results: { keywords: string[]; skillProfile: {
-  technicalSkills: string[];
-  softSkills: string[];
-  experienceLevel: string;
-  educationRequirements: string[];
-}}[], position?: string) {
+function combineJDAnalysis(results: JDAnalysisResult[], position?: string) {
   const keywords: string[] = [];
   const technicalSkills: string[] = [];
   const softSkills: string[] = [];
@@ -63,41 +63,41 @@ function combineJDAnalysis(results: { keywords: string[]; skillProfile: {
   const softSkillCount: Record<string, number> = {};
   const eduCount: Record<string, number> = {};
 
-  results.forEach(result => {
-    result.keywords.forEach(k => {
+  results.forEach((result: JDAnalysisResult) => {
+    result.keywords.forEach((k: string) => {
       keywordCount[k] = (keywordCount[k] || 0) + 1;
     });
-    result.skillProfile.technicalSkills.forEach(s => {
+    result.skillProfile.technicalSkills.forEach((s: string) => {
       techSkillCount[s] = (techSkillCount[s] || 0) + 1;
     });
-    result.skillProfile.softSkills.forEach(s => {
+    result.skillProfile.softSkills.forEach((s: string) => {
       softSkillCount[s] = (softSkillCount[s] || 0) + 1;
     });
     if (result.skillProfile.experienceLevel) {
       experienceLevels.push(result.skillProfile.experienceLevel);
     }
-    result.skillProfile.educationRequirements.forEach(e => {
+    result.skillProfile.educationRequirements.forEach((e: string) => {
       eduCount[e] = (eduCount[e] || 0) + 1;
     });
   });
 
   const threshold = Math.ceil(results.length * 0.5);
 
-  Object.entries(keywordCount).forEach(([k, v]) => {
+  Object.entries(keywordCount).forEach(([k, v]: [string, number]) => {
     if (v >= threshold) keywords.push(k);
   });
-  Object.entries(techSkillCount).forEach(([s, v]) => {
+  Object.entries(techSkillCount).forEach(([s, v]: [string, number]) => {
     if (v >= threshold) technicalSkills.push(s);
   });
-  Object.entries(softSkillCount).forEach(([s, v]) => {
+  Object.entries(softSkillCount).forEach(([s, v]: [string, number]) => {
     if (v >= threshold) softSkills.push(s);
   });
-  Object.entries(eduCount).forEach(([e, v]) => {
+  Object.entries(eduCount).forEach(([e, v]: [string, number]) => {
     if (v >= threshold) educationRequirements.push(e);
   });
 
   const commonExperience = experienceLevels.length > 0 
-    ? experienceLevels.reduce((a, b) => a.length >= b.length ? a : b) 
+    ? experienceLevels.reduce((a: string, b: string) => a.length >= b.length ? a : b) 
     : '';
 
   return {

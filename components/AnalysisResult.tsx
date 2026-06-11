@@ -228,9 +228,11 @@ export function AnalysisResult({
                         <span className="flex-shrink-0 w-6 h-6 bg-primary/10 text-primary rounded-full flex items-center justify-center text-sm font-medium">
                           {index + 1}
                         </span>
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} className="text-foreground">
-                          {suggestion}
-                        </ReactMarkdown>
+                        <div className="text-foreground">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {suggestion}
+                          </ReactMarkdown>
+                        </div>
                       </div>
                     </div>
                   ))
@@ -362,7 +364,7 @@ export function AnalysisResult({
                         <div className="flex-1 bg-muted rounded-full h-2">
                           <div
                             className="bg-primary h-2 rounded-full transition-all"
-                            style={{ width: `${(count / jdAnalysis.capabilityProfile.frequencyAnalysis.totalJDs) * 100}%` }}
+                            style={{ width: `${(count / (jdAnalysis.capabilityProfile.frequencyAnalysis?.totalJDs || 1)) * 100}%` }}
                           ></div>
                         </div>
                         <span className="text-sm text-muted-foreground w-12 text-right">

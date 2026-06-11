@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { providers, ProviderType } from '@/app/settings/page';
 
+async function fetchWithTimeout(url: string, options: RequestInit, timeout: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { provider, apiKey, model } = await request.json();
@@ -26,7 +41,7 @@ export async function POST(request: NextRequest) {
     try {
       switch (provider) {
         case 'deepseek':
-          response = await fetch(config.apiUrl, {
+          response = await fetchWithTimeout(config.apiUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -37,8 +52,7 @@ export async function POST(request: NextRequest) {
               messages: [{ role: 'user', content: '请回复：连接成功' }],
               max_tokens: 10,
             }),
-            timeout: 10000,
-          });
+          }, 10000);
           if (response.ok) {
             const data = await response.json();
             success = data.choices?.[0]?.message?.content?.includes('连接成功') ?? false;
@@ -46,7 +60,7 @@ export async function POST(request: NextRequest) {
           break;
 
         case 'glm':
-          response = await fetch(config.apiUrl, {
+          response = await fetchWithTimeout(config.apiUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -57,8 +71,7 @@ export async function POST(request: NextRequest) {
               messages: [{ role: 'user', content: '请回复：连接成功' }],
               max_tokens: 10,
             }),
-            timeout: 10000,
-          });
+          }, 10000);
           if (response.ok) {
             const data = await response.json();
             success = data.choices?.[0]?.message?.content?.includes('连接成功') ?? false;
@@ -66,7 +79,7 @@ export async function POST(request: NextRequest) {
           break;
 
         case 'qwen':
-          response = await fetch(config.apiUrl, {
+          response = await fetchWithTimeout(config.apiUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -79,8 +92,7 @@ export async function POST(request: NextRequest) {
               },
               parameters: { max_tokens: 10 },
             }),
-            timeout: 10000,
-          });
+          }, 10000);
           if (response.ok) {
             const data = await response.json();
             success = data.output?.text?.includes('连接成功') ?? false;
@@ -88,7 +100,7 @@ export async function POST(request: NextRequest) {
           break;
 
         case 'siliconflow':
-          response = await fetch(config.apiUrl, {
+          response = await fetchWithTimeout(config.apiUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -99,8 +111,7 @@ export async function POST(request: NextRequest) {
               messages: [{ role: 'user', content: '请回复：连接成功' }],
               max_tokens: 10,
             }),
-            timeout: 10000,
-          });
+          }, 10000);
           if (response.ok) {
             const data = await response.json();
             success = data.choices?.[0]?.message?.content?.includes('连接成功') ?? false;
