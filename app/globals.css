@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: oklch(0.9792 0.0049 291.9319);
+  --color-foreground: oklch(0.1448 0 0);
+  --color-card: oklch(1.0000 0 0);
+  --color-card-foreground: oklch(0.1448 0 0);
+  --color-popover: oklch(1.0000 0 0);
+  --color-popover-foreground: oklch(0.1448 0 0);
+  --color-primary: oklch(0.6368 0.2078 291.9876);
+  --color-primary-foreground: oklch(1.0000 0 0);
+  --color-secondary: oklch(0.9683 0.0069 292.0915);
+  --color-secondary-foreground: oklch(0.1448 0 0);
+  --color-muted: oklch(0.9683 0.0069 292.0915);
+  --color-muted-foreground: oklch(0.5544 0.0407 257.4166);
+  --color-accent: oklch(0.9683 0.0069 292.0915);
+  --color-accent-foreground: oklch(0.1448 0 0);
+  --color-destructive: oklch(0.6368 0.2078 291.9876);
+  --color-destructive-foreground: oklch(1.0000 0 0);
+  --color-border: oklch(0.9288 0.0126 285.5439);
+  --color-input: oklch(0.9288 0.0126 285.5439);
+  --color-ring: oklch(0.6231 0.2078 291.9876);
+  
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: monospace;
+  
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}

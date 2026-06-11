@@ -1,0 +1,127 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { analyzeJD, AIConfig } from '@/lib/ai';
+
+export async function POST(request: NextRequest) {
+  try {
+    const { position, jds, aiConfig } = await request.json();
+    
+    if (!jds || !Array.isArray(jds) || jds.length === 0) {
+      return NextResponse.json({ error: 'JD列表不能为空' }, { status: 400 });
+    }
+
+    if (!aiConfig || !aiConfig.apiKey) {
+      return NextResponse.json({ error: '请先配置AI服务商' }, { status: 400 });
+    }
+
+    const config: AIConfig = {
+      provider: aiConfig.provider || 'deepseek',
+      apiKey: aiConfig.apiKey,
+      model: aiConfig.model || 'deepseek-chat',
+    };
+
+    const allResults: { keywords: string[]; skillProfile: {
+      technicalSkills: string[];
+      softSkills: string[];
+      experienceLevel: string;
+      educationRequirements: string[];
+    }}[] = [];
+
+    for (const jdText of jds) {
+      if (jdText && jdText.trim()) {
+        const result = await analyzeJD(jdText, config);
+        allResults.push(result);
+      }
+    }
+
+    if (allResults.length === 0) {
+      return NextResponse.json({ error: '没有有效的JD内容' }, { status: 400 });
+    }
+
+    const combinedResult = combineJDAnalysis(allResults, position);
+    
+    return NextResponse.json(combinedResult);
+  } catch (error) {
+    console.error('分析JD失败:', error);
+    return NextResponse.json({ error: '分析JD失败: ' + (error as Error).message }, { status: 500 });
+  }
+}
+
+function combineJDAnalysis(results: { keywords: string[]; skillProfile: {
+  technicalSkills: string[];
+  softSkills: string[];
+  experienceLevel: string;
+  educationRequirements: string[];
+}}[], position?: string) {
+  const keywords: string[] = [];
+  const technicalSkills: string[] = [];
+  const softSkills: string[] = [];
+  const experienceLevels: string[] = [];
+  const educationRequirements: string[] = [];
+
+  const keywordCount: Record<string, number> = {};
+  const techSkillCount: Record<string, number> = {};
+  const softSkillCount: Record<string, number> = {};
+  const eduCount: Record<string, number> = {};
+
+  results.forEach(result => {
+    result.keywords.forEach(k => {
+      keywordCount[k] = (keywordCount[k] || 0) + 1;
+    });
+    result.skillProfile.technicalSkills.forEach(s => {
+      techSkillCount[s] = (techSkillCount[s] || 0) + 1;
+    });
+    result.skillProfile.softSkills.forEach(s => {
+      softSkillCount[s] = (softSkillCount[s] || 0) + 1;
+    });
+    if (result.skillProfile.experienceLevel) {
+      experienceLevels.push(result.skillProfile.experienceLevel);
+    }
+    result.skillProfile.educationRequirements.forEach(e => {
+      eduCount[e] = (eduCount[e] || 0) + 1;
+    });
+  });
+
+  const threshold = Math.ceil(results.length * 0.5);
+
+  Object.entries(keywordCount).forEach(([k, v]) => {
+    if (v >= threshold) keywords.push(k);
+  });
+  Object.entries(techSkillCount).forEach(([s, v]) => {
+    if (v >= threshold) technicalSkills.push(s);
+  });
+  Object.entries(softSkillCount).forEach(([s, v]) => {
+    if (v >= threshold) softSkills.push(s);
+  });
+  Object.entries(eduCount).forEach(([e, v]) => {
+    if (v >= threshold) educationRequirements.push(e);
+  });
+
+  const commonExperience = experienceLevels.length > 0 
+    ? experienceLevels.reduce((a, b) => a.length >= b.length ? a : b) 
+    : '';
+
+  return {
+    keywords: keywords.slice(0, 20),
+    skills: technicalSkills.slice(0, 15),
+    requirements: [
+      ...technicalSkills.slice(0, 10),
+      ...softSkills.slice(0, 5)
+    ],
+    capabilityProfile: {
+      position,
+      technicalSkills: technicalSkills.slice(0, 15),
+      softSkills: softSkills.slice(0, 10),
+      experienceLevel: commonExperience,
+      educationRequirements: educationRequirements.slice(0, 5),
+      frequencyAnalysis: {
+        totalJDs: results.length,
+        keywordFrequency: keywordCount,
+        skillFrequency: techSkillCount
+      },
+      commonRequirements: {
+        mustHave: technicalSkills.slice(0, 5),
+        niceToHave: technicalSkills.slice(5, 10)
+      }
+    }
+  };
+}
