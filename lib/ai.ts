@@ -1,4 +1,4 @@
-import { providers, AIConfig as ProviderAIConfig } from './providers';
+import { providers } from './providers';
 
 export interface AnalysisResult {
   keywords: string[];
@@ -20,10 +20,70 @@ export interface AIConfig {
   model: string;
 }
 
+/**
+ * 从AI返回内容中提取JSON
+ * 处理markdown代码块包裹的情况
+ */
+function extractJSON(content: string): unknown {
+  console.log(`[extractJSON] 原始内容长度: ${content.length}`);
+  console.log(`[extractJSON] 原始内容前200字符: ${content.substring(0, 200)}`);
+
+  // 尝试直接解析
+  try {
+    const parsed = JSON.parse(content.trim());
+    console.log(`[extractJSON] 直接解析成功`);
+    return parsed;
+  } catch {
+    // 继续尝试其他方式
+  }
+
+  // 去除markdown代码块标记
+  const cleaned = content
+    .replace(/```json\s*/gi, '')
+    .replace(/```\s*/g, '')
+    .replace(/^\s*json\s*/i, '')
+    .trim();
+
+  console.log(`[extractJSON] 清理后内容前200字符: ${cleaned.substring(0, 200)}`);
+
+  // 尝试找到JSON开始和结束位置
+  const startIndex = cleaned.indexOf('{');
+  const endIndex = cleaned.lastIndexOf('}');
+
+  if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+    const jsonStr = cleaned.substring(startIndex, endIndex + 1);
+    try {
+      const parsed = JSON.parse(jsonStr);
+      console.log(`[extractJSON] 从代码块中提取JSON成功`);
+      return parsed;
+    } catch {
+      console.log(`[extractJSON] 从代码块中提取JSON失败`);
+    }
+  }
+
+  // 尝试解析数组格式
+  const arrStartIndex = cleaned.indexOf('[');
+  const arrEndIndex = cleaned.lastIndexOf(']');
+  if (arrStartIndex !== -1 && arrEndIndex !== -1 && arrEndIndex > arrStartIndex) {
+    const jsonStr = cleaned.substring(arrStartIndex, arrEndIndex + 1);
+    try {
+      const parsed = JSON.parse(jsonStr);
+      console.log(`[extractJSON] 从数组格式中提取JSON成功`);
+      return parsed;
+    } catch {
+      console.log(`[extractJSON] 从数组格式中提取JSON失败`);
+    }
+  }
+
+  console.error(`[extractJSON] 所有解析方式均失败`);
+  console.error(`[extractJSON] 原始内容: ${content}`);
+  throw new Error('无法解析AI返回的JSON内容');
+}
+
 async function callAI(prompt: string, config: AIConfig): Promise<string> {
   const provider = config.provider.toLowerCase();
   const providerConfig = providers[provider as keyof typeof providers];
-  
+
   if (!providerConfig) {
     console.error(`[callAI] 未知的API提供商: ${provider}`);
     throw new Error('未知的API提供商');
@@ -41,8 +101,8 @@ async function callAI(prompt: string, config: AIConfig): Promise<string> {
         body = {
           model: config.model,
           messages: [{ role: 'user', content: prompt }],
-          temperature: 0.7,
-          max_tokens: 2048,
+          temperature: 0.3,
+          max_tokens: 4096,
         };
         break;
 
@@ -53,8 +113,8 @@ async function callAI(prompt: string, config: AIConfig): Promise<string> {
             messages: [{ role: 'user', content: prompt }],
           },
           parameters: {
-            temperature: 0.7,
-            max_tokens: 2048,
+            temperature: 0.3,
+            max_tokens: 4096,
           },
         };
         break;
@@ -63,7 +123,7 @@ async function callAI(prompt: string, config: AIConfig): Promise<string> {
         body = {
           model: config.model,
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 2048,
+          max_tokens: 4096,
         };
         break;
 
@@ -71,8 +131,8 @@ async function callAI(prompt: string, config: AIConfig): Promise<string> {
         body = {
           model: config.model,
           messages: [{ role: 'user', content: prompt }],
-          temperature: 0.7,
-          max_tokens: 2048,
+          temperature: 0.3,
+          max_tokens: 4096,
         };
     }
 
@@ -121,40 +181,54 @@ export async function analyzeJD(
 ): Promise<{ keywords: string[]; skillProfile: SkillProfile }> {
   console.log(`[analyzeJD] 开始分析JD: length=${jdText.length}`);
 
-  const prompt = `
+  const prompt = `你是专业招聘分析专家。请严格按照以下JSON格式返回。
+只返回JSON。
+不要输出任何解释。
+不要输出markdown。
+不要输出 \`\`\`json。
+不要输出多余文字。
+返回内容必须是合法JSON。
+
 分析以下职位描述(JD)，提取关键信息：
 
 JD内容：
 ${jdText}
 
-请以JSON格式输出，包含以下字段：
-1. keywords: 从JD中提取的核心关键词数组
-2. skillProfile: 包含以下子字段：
-   - technicalSkills: 技术技能要求数组
-   - softSkills: 软技能要求数组
-   - experienceLevel: 经验要求描述
-   - educationRequirements: 学历要求数组
-
-请确保输出是有效的JSON格式，不要包含其他文字。
-`;
+返回格式：
+{
+  "keywords": ["关键词1", "关键词2"],
+  "skillProfile": {
+    "technicalSkills": ["技能1", "技能2"],
+    "softSkills": ["软技能1", "软技能2"],
+    "experienceLevel": "经验要求描述",
+    "educationRequirements": ["学历要求1"]
+  }
+}`;
 
   const result = await callAI(prompt, config);
 
+  console.log(`[analyzeJD] AI原始返回:`);
+  console.log(result);
+
   try {
-    const parsed = JSON.parse(result);
+    const parsed = extractJSON(result) as { keywords: string[]; skillProfile: SkillProfile };
+    console.log(`[analyzeJD] 解析结果:`);
+    console.log(JSON.stringify(parsed, null, 2));
     console.log(`[analyzeJD] 分析完成: keywords=${parsed.keywords?.length || 0}, technicalSkills=${parsed.skillProfile?.technicalSkills?.length || 0}`);
+
+    // 验证必要字段
+    if (!parsed.keywords || !Array.isArray(parsed.keywords)) {
+      throw new Error('AI返回缺少keywords字段');
+    }
+    if (!parsed.skillProfile) {
+      throw new Error('AI返回缺少skillProfile字段');
+    }
+
     return parsed;
   } catch (e) {
     console.error(`[analyzeJD] JSON解析失败: ${(e as Error).message}`);
-    return {
-      keywords: [],
-      skillProfile: {
-        technicalSkills: [],
-        softSkills: [],
-        experienceLevel: '',
-        educationRequirements: [],
-      },
-    };
+    console.error(`[analyzeJD] AI原始返回内容: ${result}`);
+    throw new Error(`AI返回解析失败: ${(e as Error).message}`);
   }
 }
 
@@ -164,33 +238,51 @@ export async function analyzeResume(
 ): Promise<{ keywords: string[]; experience: string; skills: string[] }> {
   console.log(`[analyzeResume] 开始分析简历: length=${resumeText.length}`);
 
-  const prompt = `
+  if (!resumeText || resumeText.trim().length === 0) {
+    throw new Error('简历文本为空');
+  }
+
+  const prompt = `你是专业简历分析专家。请严格按照以下JSON格式返回。
+只返回JSON。
+不要输出任何解释。
+不要输出markdown。
+不要输出 \`\`\`json。
+不要输出多余文字。
+返回内容必须是合法JSON。
+
 分析以下简历内容，提取关键信息：
 
 简历内容：
 ${resumeText}
 
-请以JSON格式输出，包含以下字段：
-1. keywords: 从简历中提取的核心关键词数组
-2. experience: 工作经验描述
-3. skills: 技能列表数组
-
-请确保输出是有效的JSON格式，不要包含其他文字。
-`;
+返回格式：
+{
+  "keywords": ["关键词1", "关键词2"],
+  "experience": "工作经验描述",
+  "skills": ["技能1", "技能2"]
+}`;
 
   const result = await callAI(prompt, config);
 
+  console.log(`[analyzeResume] AI原始返回:`);
+  console.log(result);
+
   try {
-    const parsed = JSON.parse(result);
+    const parsed = extractJSON(result) as { keywords: string[]; experience: string; skills: string[] };
+    console.log(`[analyzeResume] 解析结果:`);
+    console.log(JSON.stringify(parsed, null, 2));
     console.log(`[analyzeResume] 分析完成: keywords=${parsed.keywords?.length || 0}, skills=${parsed.skills?.length || 0}`);
+
+    // 验证必要字段
+    if (!parsed.skills || !Array.isArray(parsed.skills)) {
+      throw new Error('AI返回缺少skills字段');
+    }
+
     return parsed;
   } catch (e) {
     console.error(`[analyzeResume] JSON解析失败: ${(e as Error).message}`);
-    return {
-      keywords: [],
-      experience: '',
-      skills: [],
-    };
+    console.error(`[analyzeResume] AI原始返回内容: ${result}`);
+    throw new Error(`AI返回解析失败: ${(e as Error).message}`);
   }
 }
 
@@ -201,7 +293,18 @@ export async function calculateMatch(
 ): Promise<{ score: number; suggestions: string[] }> {
   console.log(`[calculateMatch] 开始计算匹配度: jobSkills=${jobRequirements.technicalSkills.length}, resumeSkills=${resumeSkills.length}`);
 
-  const prompt = `
+  if (!resumeSkills || resumeSkills.length === 0) {
+    throw new Error('简历技能为空');
+  }
+
+  const prompt = `你是专业HR和招聘专家。请严格按照以下JSON格式返回。
+只返回JSON。
+不要输出任何解释。
+不要输出markdown。
+不要输出 \`\`\`json。
+不要输出多余文字。
+返回内容必须是合法JSON。
+
 分析求职者技能与岗位要求的匹配度：
 
 岗位技能要求：
@@ -213,24 +316,35 @@ export async function calculateMatch(
 求职者技能：
 ${resumeSkills.join(', ')}
 
-请以JSON格式输出，包含以下字段：
-1. score: 匹配度分数（0-100）
-2. suggestions: 简历优化建议数组（至少5条具体建议）
-
-请确保输出是有效的JSON格式，不要包含其他文字。
-`;
+返回格式：
+{
+  "score": 75,
+  "suggestions": ["建议1", "建议2", "建议3", "建议4", "建议5"]
+}`;
 
   const result = await callAI(prompt, config);
 
+  console.log(`[calculateMatch] AI原始返回:`);
+  console.log(result);
+
   try {
-    const parsed = JSON.parse(result);
+    const parsed = extractJSON(result) as { score: number; suggestions: string[] };
+    console.log(`[calculateMatch] 解析结果:`);
+    console.log(JSON.stringify(parsed, null, 2));
     console.log(`[calculateMatch] 计算完成: score=${parsed.score}, suggestions=${parsed.suggestions?.length || 0}`);
+
+    // 验证必要字段
+    if (typeof parsed.score !== 'number') {
+      throw new Error('AI返回缺少score字段或类型错误');
+    }
+    if (!parsed.suggestions || !Array.isArray(parsed.suggestions)) {
+      throw new Error('AI返回缺少suggestions字段');
+    }
+
     return parsed;
   } catch (e) {
     console.error(`[calculateMatch] JSON解析失败: ${(e as Error).message}`);
-    return {
-      score: 0,
-      suggestions: [],
-    };
+    console.error(`[calculateMatch] AI原始返回内容: ${result}`);
+    throw new Error(`AI返回解析失败: ${(e as Error).message}`);
   }
 }

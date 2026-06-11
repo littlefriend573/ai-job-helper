@@ -14,7 +14,9 @@ interface JDAnalysisResult {
 export async function POST(request: NextRequest) {
   try {
     const { position, jds, aiConfig } = await request.json();
-    
+
+    console.log(`[analyze-jd] 收到请求: position=${position}, jdCount=${jds?.length}`);
+
     if (!jds || !Array.isArray(jds) || jds.length === 0) {
       return NextResponse.json({ error: 'JD列表不能为空' }, { status: 400 });
     }
@@ -33,6 +35,7 @@ export async function POST(request: NextRequest) {
 
     for (const jdText of jds) {
       if (jdText && jdText.trim()) {
+        console.log(`[analyze-jd] 分析第${allResults.length + 1}条JD, length=${jdText.length}`);
         const result = await analyzeJD(jdText, config);
         allResults.push(result);
       }
@@ -43,15 +46,19 @@ export async function POST(request: NextRequest) {
     }
 
     const combinedResult = combineJDAnalysis(allResults, position);
-    
+
+    console.log(`[analyze-jd] 分析完成: keywords=${combinedResult.keywords.length}, skills=${combinedResult.skills.length}`);
+
     return NextResponse.json(combinedResult);
   } catch (error) {
-    console.error('分析JD失败:', error);
+    console.error('[analyze-jd] 分析JD失败:', error);
     return NextResponse.json({ error: '分析JD失败: ' + (error as Error).message }, { status: 500 });
   }
 }
 
 function combineJDAnalysis(results: JDAnalysisResult[], position?: string) {
+  console.log(`[combineJDAnalysis] 合并${results.length}条JD分析结果, position=${position}`);
+
   const keywords: string[] = [];
   const technicalSkills: string[] = [];
   const softSkills: string[] = [];
@@ -96,11 +103,11 @@ function combineJDAnalysis(results: JDAnalysisResult[], position?: string) {
     if (v >= threshold) educationRequirements.push(e);
   });
 
-  const commonExperience = experienceLevels.length > 0 
-    ? experienceLevels.reduce((a: string, b: string) => a.length >= b.length ? a : b) 
+  const commonExperience = experienceLevels.length > 0
+    ? experienceLevels.reduce((a: string, b: string) => a.length >= b.length ? a : b)
     : '';
 
-  return {
+  const result = {
     keywords: keywords.slice(0, 20),
     skills: technicalSkills.slice(0, 15),
     requirements: [
@@ -124,4 +131,7 @@ function combineJDAnalysis(results: JDAnalysisResult[], position?: string) {
       }
     }
   };
+
+  console.log(`[combineJDAnalysis] 合并完成: keywords=${result.keywords.length}, skills=${result.skills.length}`);
+  return result;
 }

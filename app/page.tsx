@@ -96,6 +96,20 @@ export default function Home() {
       
       if (response.ok) {
         const data = await response.json();
+        console.log('[page] JD分析结果:', data);
+
+        // 检查返回数据是否为空
+        const hasEmptyData =
+          !data.keywords || data.keywords.length === 0 ||
+          !data.skills || data.skills.length === 0 ||
+          !data.requirements || data.requirements.length === 0;
+
+        if (hasEmptyData) {
+          console.error('[page] JD解析返回空数据');
+          setErrorMessage('JD解析失败：AI未能提取到有效信息，请检查JD内容是否足够详细，或稍后重试。');
+          return;
+        }
+
         setJdAnalysis(data);
         setStep('resume');
       } else {
@@ -134,6 +148,18 @@ export default function Home() {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('[page] 简历分析结果:', data);
+
+        // 检查返回数据是否为空
+        const hasEmptyData =
+          !data.skills || data.skills.length === 0;
+
+        if (hasEmptyData) {
+          console.error('[page] 简历解析返回空数据');
+          setErrorMessage('简历解析失败：AI未能提取到有效信息，请检查PDF是否正确上传，或稍后重试。');
+          return;
+        }
+
         setResumeAnalysis(data);
         setMatchResult({
           score: data.score,
